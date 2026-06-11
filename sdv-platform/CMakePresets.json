@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (optimised)",
+      "description": "Fastest build for production benchmarking",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE":      "Release",
+        "CMAKE_CXX_COMPILER":    "g++"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug (sanitizers)",
+      "description": "ASan + UBSan for development",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE":      "Debug",
+        "CMAKE_CXX_COMPILER":    "g++"
+      }
+    },
+    {
+      "name": "clang",
+      "displayName": "Clang Release",
+      "description": "Build with clang++ for cross-compiler validation",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE":      "Release",
+        "CMAKE_CXX_COMPILER":    "clang++"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI (Release + warnings as errors)",
+      "description": "Configuration used in GitHub Actions",
+      "inherits": "release",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug",   "configurePreset": "debug"   },
+    { "name": "clang",   "configurePreset": "clang"   },
+    { "name": "ci",      "configurePreset": "ci"       }
+  ],
+
+  "testPresets": [
+    {
+      "name": "unit",
+      "displayName": "Run unit tests",
+      "configurePreset": "release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "unit-verbose",
+      "displayName": "Run unit tests (verbose)",
+      "configurePreset": "debug",
+      "output": { "outputOnFailure": true, "verbosity": "verbose" }
+    }
+  ]
+}

@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 project(sdv_platform CXX)
 
-# ── C++20 required for: std::jthread, std::span, concepts ────────────────────
-set(CMAKE_CXX_STANDARD 20)
+# ── C++23 required for: std::expected, std::flat_map, std::mdspan ────────────
+# Wave 1 features (C++20): std::jthread, std::span, concepts, __VA_OPT__
+# Wave 2 features (C++23): std::expected, std::flat_map, std::print (if avail.)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)   # enforce -std=c++20 not -std=gnu++20
+set(CMAKE_CXX_EXTENSIONS OFF)   # enforce -std=c++23 not -std=gnu++23
 
 # ── Compiler warnings ─────────────────────────────────────────────────────────
 add_compile_options(
@@ -30,9 +32,13 @@ set(SRCS_COMMON
 add_executable(sdv_demo apps/demo/main.cpp ${SRCS_COMMON})
 target_link_libraries(sdv_demo PRIVATE Threads::Threads)
 
-# ── Enhanced demo (C++20 + all new subsystems) ────────────────────────────────
+# ── Wave 1 demo (C++20) ───────────────────────────────────────────────────────
 add_executable(sdv_demo_enhanced apps/demo/main_enhanced.cpp ${SRCS_COMMON})
 target_link_libraries(sdv_demo_enhanced PRIVATE Threads::Threads)
+
+# ── Wave 2 demo (C++23 + new subsystems) ─────────────────────────────────────
+add_executable(sdv_demo_v2 apps/demo/main_v2.cpp ${SRCS_COMMON})
+target_link_libraries(sdv_demo_v2 PRIVATE Threads::Threads)
 
 # ── Test suite ────────────────────────────────────────────────────────────────
 add_executable(sdv_tests tests/test_all.cpp ${SRCS_COMMON})
@@ -42,5 +48,5 @@ enable_testing()
 add_test(NAME unit_tests COMMAND sdv_tests)
 
 # ── Install ───────────────────────────────────────────────────────────────────
-install(TARGETS sdv_demo sdv_demo_enhanced sdv_tests
+install(TARGETS sdv_demo sdv_demo_enhanced sdv_demo_v2 sdv_tests
         RUNTIME DESTINATION bin)

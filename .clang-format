@@ -1,0 +1,79 @@
+# =============================================================================
+# .clang-format — SDV Platform Code Style
+#
+# Based on Google style with automotive-specific adjustments:
+#   * 100-column line limit (wider screens, longer type names)
+#   * 4-space indent (AUTOSAR/MISRA standard)
+#   * BraceWrapping: Attach (consistent with AUTOSAR guidelines)
+#   * PointerAlignment: Left (T* p, not T *p)
+# =============================================================================
+
+Language: Cpp
+BasedOnStyle: Google
+
+# Column limit — 100 chars fits automotive naming conventions
+ColumnLimit: 100
+
+# 4-space indent (AUTOSAR / MISRA standard, not Google's 2)
+IndentWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+
+# Braces on same line (Google/K&R style)
+BreakBeforeBraces: Attach
+
+# Pointer/reference alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Include sorting
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:    '^<[a-z_]+>'           # STL headers first
+    Priority: 1
+  - Regex:    '^"(middleware|drivers|services|apps|security)/'
+    Priority: 2
+  - Regex:    '^"'
+    Priority: 3
+
+# Namespace indentation
+NamespaceIndentation: None
+CompactNamespaces: false
+
+# Constructor initializer lists
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: BinPack
+
+# Trailing commas in multi-line
+InsertTrailingCommas: Wrapped
+
+# Long function argument lists
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackArguments: false
+BinPackParameters: false
+
+# Template parameters
+AlwaysBreakTemplateDeclarations: Yes
+
+# Penalties (encourage breaking at natural points)
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyBreakComment: 300
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+
+# Short functions / lambdas
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+
+# C++23 features
+Standard: Latest
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInContainerLiterals: false
+SpacesInSquareBrackets: false
