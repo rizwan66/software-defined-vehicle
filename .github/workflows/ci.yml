@@ -1,0 +1,159 @@
+name: SDV Platform CI
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+
+env:
+  BUILD_DIR: sdv-platform/build
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test (${{ matrix.compiler }} / ${{ matrix.build_type }})
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++-12, clang++-15]
+        build_type: [Release, Debug]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y ${{ matrix.compiler }} cmake python3 clang-tidy
+
+      - name: Configure (CMake)
+        working-directory: sdv-platform
+        run: |
+          cmake -B build \
+            -DCMAKE_CXX_COMPILER=$(which ${{ matrix.compiler }}) \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        working-directory: sdv-platform
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run unit tests
+        working-directory: sdv-platform
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run original demo (smoke test)
+        working-directory: sdv-platform
+        run: |
+          python3 tools/generate_update_package.py \
+            --out /tmp/sdv-ota-demo/incoming --version 1
+          rm -rf /tmp/sdv-ota-demo/slot_a /tmp/sdv-ota-demo/slot_b \
+                 /tmp/sdv-ota-demo/state
+          ./build/sdv_demo
+
+      - name: Run enhanced demo (smoke test)
+        working-directory: sdv-platform
+        run: |
+          python3 tools/generate_update_package.py \
+            --out /tmp/sdv-ota-demo/incoming --version 1
+          rm -rf /tmp/sdv-ota-demo/slot_a /tmp/sdv-ota-demo/slot_b \
+                 /tmp/sdv-ota-demo/state
+          ./build/sdv_demo_enhanced
+
+  # ────────────────────────────────────────────────────────────────────────────
+  static-analysis:
+    name: Static Analysis (clang-tidy)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y g++-12 cmake clang-tidy python3
+
+      - name: Configure (generate compile_commands.json)
+        working-directory: sdv-platform
+        run: |
+          cmake -B build \
+            -DCMAKE_CXX_COMPILER=g++-12 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build (required before tidy)
+        working-directory: sdv-platform
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run clang-tidy
+        working-directory: sdv-platform
+        run: |
+          clang-tidy \
+            -p build \
+            --extra-arg=-std=c++20 \
+            apps/demo/main_enhanced.cpp \
+            apps/adas/aeb_function.hpp \
+            services/vehicle-signals/vehicle_speed_service.hpp \
+            middleware/metrics/metrics_collector.hpp \
+            middleware/ara_com/service_registry.hpp \
+            2>&1 | tee clang-tidy-report.txt || true
+
+      - name: Upload tidy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: clang-tidy-report
+          path: sdv-platform/clang-tidy-report.txt
+
+  # ────────────────────────────────────────────────────────────────────────────
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y g++-12 cmake python3
+
+      - name: Configure with sanitizers
+        working-directory: sdv-platform
+        run: |
+          cmake -B build_san \
+            -DCMAKE_CXX_COMPILER=g++-12 \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        working-directory: sdv-platform
+        run: cmake --build build_san --parallel $(nproc)
+
+      - name: Run tests under ASan + UBSan
+        working-directory: sdv-platform
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build_san --output-on-failure
+
+  # ────────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Image Build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t sdv-platform:ci .
+
+      - name: Run tests inside container
+        run: |
+          docker run --rm sdv-platform:ci \
+            bash -c "cd /sdv/sdv-platform && \
+                     python3 tools/generate_update_package.py \
+                       --out /tmp/sdv-ota-demo/incoming --version 1 && \
+                     ./build/sdv_tests"

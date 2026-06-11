@@ -1,0 +1,66 @@
+version: "3.9"
+
+# =============================================================================
+# SDV Platform — docker-compose for local development
+#
+# Services:
+#   sdv-demo          — run the original demo
+#   sdv-demo-enhanced — run the enhanced demo (C++20 + all new subsystems)
+#   sdv-tests         — run the full test suite
+#
+# Usage:
+#   docker compose up sdv-tests          # run tests
+#   docker compose up sdv-demo-enhanced  # run enhanced demo
+#   docker compose build                 # rebuild after code changes
+# =============================================================================
+
+services:
+  # Shared build step (all services share the same image)
+  sdv-base:
+    build:
+      context: .
+      target: builder
+    image: sdv-platform:builder
+    profiles: [build]   # only built manually; other services pull from it
+
+  sdv-demo:
+    build:
+      context: .
+      target: runtime
+    image: sdv-platform:runtime
+    command: >
+      bash -c "
+        python3 tools/generate_update_package.py
+          --out /tmp/sdv-ota-demo/incoming --version 1 &&
+        rm -rf /tmp/sdv-ota-demo/slot_a /tmp/sdv-ota-demo/slot_b
+               /tmp/sdv-ota-demo/state &&
+        ./build/sdv_demo"
+    volumes:
+      - ota-tmp:/tmp/sdv-ota-demo
+
+  sdv-demo-enhanced:
+    build:
+      context: .
+      target: runtime
+    image: sdv-platform:runtime
+    command: >
+      bash -c "
+        python3 tools/generate_update_package.py
+          --out /tmp/sdv-ota-demo/incoming --version 1 &&
+        rm -rf /tmp/sdv-ota-demo/slot_a /tmp/sdv-ota-demo/slot_b
+               /tmp/sdv-ota-demo/state &&
+        ./build/sdv_demo_enhanced"
+    volumes:
+      - ota-tmp:/tmp/sdv-ota-demo
+
+  sdv-tests:
+    build:
+      context: .
+      target: runtime
+    image: sdv-platform:runtime
+    command: ./build/sdv_tests
+    environment:
+      - ASAN_OPTIONS=detect_leaks=0  # no ASAN in runtime image; tests run clean
+
+volumes:
+  ota-tmp:
